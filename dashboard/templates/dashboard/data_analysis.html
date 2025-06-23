@@ -1,0 +1,145 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+{% load custom_filters %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="bi bi-graph-up"></i> Analyse: {{ data.get_data_type_display }}
+        </h2>
+        <a href="{% url 'dashboard:session_detail' data.session.session_id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+    
+    <div class="row">
+        <!-- Data Info -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-info-circle"></i> Métadonnées
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Type de données</h6>
+                        <p>
+                            <span class="badge badge-{{ data.data_type }}">
+                                {{ data.get_data_type_display }}
+                            </span>
+                        </p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Session</h6>
+                        <p>
+                            <a href="{% url 'dashboard:session_detail' data.session.session_id %}">
+                                {{ data.session.session_id|truncatechars:10 }}
+                            </a><br>
+                            <small class="text-muted">
+                                {{ data.session.start_time|date:"SHORT_DATETIME_FORMAT" }}
+                            </small>
+                        </p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6>Statut</h6>
+                        <p>
+                            {% if data.is_analyzed %}
+                            <span class="badge bg-success">Analysé</span>
+                            {% else %}
+                            <span class="badge bg-warning">Non analysé</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <h6>Détails</h6>
+                        <p>
+                            {{ data.item_count }} éléments<br>
+                            Taille: {{ data.file_size|filesizeformat }}<br>
+                            Date: {{ data.created_at|date:"SHORT_DATETIME_FORMAT" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-magic"></i> Actions
+                </div>
+                <div class="card-body">
+                    <button class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-robot"></i> Analyser avec IA
+                    </button>
+                    <button class="btn btn-outline-primary w-100 mb-2">
+                        <i class="bi bi-search"></i> Rechercher motifs
+                    </button>
+                    <button class="btn btn-outline-secondary w-100">
+                        <i class="bi bi-download"></i> Télécharger
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Analysis Results -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-bar-chart-line"></i> Résultats d'analyse</span>
+                        <span class="badge bg-light text-dark">{{ analysis_results.count }} résultats</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if analysis_results %}
+                    <div class="list-group">
+                        {% for result in analysis_results %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5>{{ result.result_type }}</h5>
+                                    {% if result.confidence_score %}
+                                    <span class="badge bg-{% if result.confidence_score > 0.7 %}success{% elif result.confidence_score > 0.4 %}warning{% else %}danger{% endif %}">
+                                        Confiance: {{ result.confidence_score|floatformat:2 }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% if result.is_important %}
+                                <span class="badge bg-danger">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> Important
+                                </span>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2">
+                                <pre class="p-2 bg-light rounded">{{ result.result_data|json_script:"pretty" }}</pre>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-info-circle" style="font-size: 2rem;"></i>
+                        <p class="mt-3">Aucun résultat d'analyse disponible</p>
+                        <button class="btn btn-primary mt-2">
+                            <i class="bi bi-robot"></i> Lancer une analyse
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .badge-sms { background-color: #20c997; color: white; }
+    .badge-calls { background-color: #fd7e14; color: white; }
+    .badge-contacts { background-color: #6f42c1; color: white; }
+    .badge-images { background-color: #d63384; color: white; }
+    .badge-videos { background-color: #0dcaf0; color: white; }
+    .badge-audio { background-color: #ffc107; color: black; }
+    .badge-browser { background-color: #6610f2; color: white; }
+    .badge-whatsapp { background-color: #25D366; color: white; }
+    .badge-location { background-color: #198754; color: white; }
+</style>
+{% endblock %}

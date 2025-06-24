@@ -1,0 +1,26 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Images Collectées</h2>
+    
+    <div class="row">
+        {% for img in images_data %}
+        <div class="col-md-3 mb-4">
+            <div class="card data-card">
+                <img src="{{ img.thumbnail }}" class="card-img-top" alt="Image collectée" 
+                     style="height: 200px; object-fit: cover;">
+                <div class="card-body">
+                    <h6 class="card-title">{{ img.name|truncatechars:20 }}</h6>
+                    <p class="text-muted small mb-1">{{ img.date_added|date:"d/m/Y H:i" }}</p>
+                    <a href="{{ img.path }}" target="_blank" class="btn btn-sm btn-primary">
+                        <i class="bi bi-zoom-in"></i> Voir original
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

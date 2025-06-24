@@ -1,0 +1,45 @@
+{% extends "auth/base_auth.html" %}
+
+{% block title %}Connexion - Forensic Platform{% endblock %}
+
+{% block content %}
+<div class="card auth-card">
+    <div class="card-header auth-header text-center py-4">
+        <h3 class="brand-logo">
+            <i class="bi bi-shield-lock"></i> Forensic Platform
+        </h3>
+        <p class="mb-0">Connexion à l'espace d'administration</p>
+    </div>
+    <div class="card-body p-4">
+        {% if form.errors %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill"></i> Identifiants incorrects. Veuillez réessayer.
+        </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="id_username" class="form-label">Nom d'utilisateur</label>
+                <input type="text" name="username" class="form-control" id="id_username" required>
+            </div>
+            <div class="mb-3">
+                <label for="id_password" class="form-label">Mot de passe</label>
+                <input type="password" name="password" class="form-control" id="id_password" required>
+            </div>
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i> Se connecter
+                </button>
+            </div>
+        </form>
+
+        <div class="mt-3 text-center">
+            <a href="#" class="text-decoration-none">Mot de passe oublié ?</a>
+        </div>
+    </div>
+    <div class="card-footer text-center py-3">
+        <p class="mb-0">Nouveau sur la plateforme ? <a href="{% url 'register' %}" class="text-decoration-none">Créer un compte</a></p>
+    </div>
+</div>
+{% endblock %}

@@ -1,68 +1,110 @@
 {% extends "dashboard/base.html" %}
 {% load static %}
+{% load custom_filters %}
+{% load humanize %}
 
 {% block content %}
-<div class="row">
-    <div class="col">
-        <div class="card shadow mb-4">
-            <div class="card-header bg-primary text-white">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h3 class="card-title mb-0">
-                        <i class="bi bi-phone"></i> Session {{ session.session_id }}
-                    </h3>
-                    <span class="badge bg-{% if session.status == 'completed' %}success{% elif session.status == 'active' %}warning{% else %}danger{% endif %}">
-                        {{ session.get_status_display }}
-                    </span>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h5><i class="bi bi-info-circle"></i> Informations</h5>
-                        <p>
-                            <strong>Appareil:</strong> {{ session.device_info.manufacturer|default:"Inconnu" }} {{ session.device_info.model|default:"" }}<br>
-                            <strong>Android:</strong> {{ session.device_info.version|default:"Inconnu" }}<br>
-                            <strong>Début:</strong> {{ session.start_time|date:"d/m/Y H:i" }}<br>
-                            {% if session.end_time %}
-                            <strong>Fin:</strong> {{ session.end_time|date:"d/m/Y H:i" }}<br>
-                            <strong>Durée:</strong> {{ session.start_time|timesince:session.end_time }}
-                            {% endif %}
-                        </p>
-                    </div>
-                    <div class="col-md-6">
-                        <h5><i class="bi bi-folder"></i> Sauvegarde</h5>
-                        <p class="text-monospace bg-light p-2 rounded">
-                            {{ session.save_path|default:"Aucun chemin enregistré" }}
-                        </p>
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3>
+                            <i class="bi bi-phone"></i> Session: {{ session.session_id }}
+                        </h3>
+                        <span class="badge bg-{% if session.status == 'completed' %}success{% elif session.status == 'active' %}warning{% else %}danger{% endif %}">
+                            {{ session.get_status_display }}
+                        </span>
                     </div>
                 </div>
-
-                <h5 class="mb-3"><i class="bi bi-database"></i> Données collectées</h5>
-                <div class="row">
-                    {% for dtype, data in data_items.items %}
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100">
-                            <div class="card-header bg-light">
-                                <h6 class="mb-0">
-                                    <i class="bi bi-{% if dtype == 'sms' %}chat-text{% elif dtype == 'calls' %}telephone{% elif dtype == 'contacts' %}people{% elif dtype == 'images' %}image{% elif dtype == 'videos' %}film{% else %}music-note{% endif %}"></i>
-                                    {{ data.get_data_type_display }} ({{ data.item_count }})
-                                </h6>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Informations de base -->
+                        <div class="col-md-6">
+                            <h4><i class="bi bi-info-circle"></i> Informations</h4>
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <th>Appareil</th>
+                                        <td>{{ session.device_name|default:"Inconnu" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Android</th>
+                                        <td>{{ session.android_version|default:"Inconnu" }}</td>
+                                    </tr>
+                                    <tr>
+                                        <th>Début</th>
+                                        <td>{{ session.start_time|date:"d/m/Y H:i" }}</td>
+                                    </tr>
+                                    {% if session.end_time %}
+                                    <tr>
+                                        <th>Fin</th>
+                                        <td>{{ session.end_time|date:"d/m/Y H:i" }}</td>
+                                    </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <!-- Chemin de stockage -->
+                        <div class="col-md-6">
+                            <h4><i class="bi bi-folder"></i> Stockage des données</h4>
+                            <div class="alert alert-secondary">
+                                <i class="bi bi-folder2"></i> 
+                                <strong>Chemin relatif :</strong><br>
+                                <code>media/forensic_data/{{ session.start_time|date:"Y/m/d" }}/{{ session.session_id }}/</code>
                             </div>
-                            <div class="card-body">
-                                {% if data %}
-                                <a href="{{ data.file.url }}" class="btn btn-sm btn-outline-primary mb-2">
-                                    <i class="bi bi-download"></i> Télécharger
-                                </a>
-                                <div class="bg-light p-2 rounded">
-                                    <pre class="mb-0">{{ data.metadata|slice:":200" }}...</pre>
-                                </div>
-                                {% else %}
-                                <p class="text-muted">Aucune donnée disponible</p>
-                                {% endif %}
+                            <div class="alert alert-info">
+                                <i class="bi bi-hdd"></i> 
+                                <strong>Chemin absolu :</strong><br>
+                                <code>{{ MEDIA_ROOT }}/forensic_data/{{ session.start_time|date:"Y/m/d" }}/{{ session.session_id }}/</code>
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Données collectées -->
+    <div class="row">
+        <div class="col">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4><i class="bi bi-database"></i> Fichiers collectés</h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Fichier</th>
+                                    <th>Taille</th>
+                                    <th>Éléments</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dtype, data in data_items.items %}
+                                <tr>
+                                    <td>{{ data.get_data_type_display }}</td>
+                                    <td>
+                                        <code>{{ data.file.name|cut:"forensic_data/" }}</code>
+                                    </td>
+                                    <td>{{ data.file.size|filesizeformat }}</td>
+                                    <td>{{ data.item_count|intcomma }}</td>
+                                    <td>
+                                        <a href="{{ data.file.url }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-download"></i> Télécharger
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

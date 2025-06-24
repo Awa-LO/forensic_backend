@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import FileExtensionValidator
+import os
 
 User = get_user_model()
 
@@ -18,6 +19,24 @@ class ForensicSession(models.Model):
     end_time = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     total_items = models.IntegerField(default=0)
+    device_name = models.CharField(max_length=255, blank=True, null=True)
+    android_version = models.CharField(max_length=50, blank=True, null=True)
+    save_path = models.CharField(max_length=512, blank=True, null=True)
+    def get_storage_path(self):
+        return f"forensic_data/{self.start_time.strftime('%Y/%m/%d')}/{self.session_id}/"
+    
+    def get_absolute_path(self):
+        from django.conf import settings
+        return os.path.join(settings.MEDIA_ROOT, self.get_storage_path())
+    
+    def save(self, *args, **kwargs):
+        # Extraction automatique des infos depuis device_info
+        if self.device_info:
+            if not self.device_name and 'model' in self.device_info:
+                self.device_name = self.device_info.get('model')
+            if not self.android_version and 'version' in self.device_info:
+                self.android_version = self.device_info.get('version')
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ['-start_time']

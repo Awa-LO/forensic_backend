@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth import get_user_model
 from django.core.validators import FileExtensionValidator
 import os
+import json
 
 User = get_user_model()
 
@@ -43,6 +44,35 @@ class ForensicSession(models.Model):
 
     def __str__(self):
         return f"Session {self.session_id} ({self.status})"
+    
+
+    def get_device_info(self):
+        """Charge les infos de l'appareil depuis le rapport ou les champs sauvegardés"""
+        if self.device_info and self.device_info.get('model'):
+            return self.device_info
+        
+        # Cherche le fichier rapport
+        report_file = self.collected_items.filter(
+            file__icontains='collection_report'
+        ).first()
+        
+        if report_file:
+            try:
+                with open(report_file.file.path, 'r') as f:
+                    report = json.load(f)
+                    if isinstance(report, list) and report:
+                        self.device_info = report[0].get('device_info', {})
+                        self.save()
+                        return self.device_info
+            except Exception:
+                pass
+        
+        return {
+            'model': self.device_name or 'Inconnu',
+            'manufacturer': 'Inconnu',
+            'android_version': self.android_version or 'Inconnu',
+            'api_level': 0
+        }
 
 class CollectedData(models.Model):
     DATA_TYPES = [

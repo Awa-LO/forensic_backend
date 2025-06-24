@@ -134,105 +134,137 @@ class UploadSessionView(APIView):
                 'message': f'Erreur lors de l\'upload: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    def process_zip_upload(self, user, zip_file):
-        """Traite le fichier ZIP uploadé"""
-        session_id = str(uuid.uuid4())
-        
-        # Création de la session
-        session = ForensicSession.objects.create(
-            user=user,
-            session_id=session_id,
-            device_info={'uploaded_via': 'zip', 'filename': zip_file.name}
-        )
+def process_zip_upload(self, user, zip_file):
+    session_id = str(uuid.uuid4())
+    
+    # Dictionnaire par défaut pour device_info
+    device_info = {
+        'uploaded_via': 'zip', 
+        'filename': zip_file.name,
+        'model': 'Inconnu',
+        'manufacturer': 'Inconnu',
+        'android_version': 'Inconnu'
+    }
 
-        # Traitement du contenu ZIP
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Sauvegarde temporaire du ZIP
-            zip_path = os.path.join(temp_dir, zip_file.name)
-            with open(zip_path, 'wb') as f:
-                for chunk in zip_file.chunks():
-                    f.write(chunk)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        zip_path = os.path.join(temp_dir, zip_file.name)
+        with open(zip_path, 'wb') as f:
+            for chunk in zip_file.chunks():
+                f.write(chunk)
 
-            # Extraction et traitement
-            try:
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-                    
-                    # Traitement des fichiers extraits
-                    extracted_files = []
-                    for root, dirs, files in os.walk(temp_dir):
-                        for file in files:
-                            if file.endswith(('.json', '.csv')) and file != zip_file.name:
-                                file_path = os.path.join(root, file)
-                                self.process_extracted_file(session, file_path, file)
-                                extracted_files.append(file)
-                    
-                    logger.info(f"Fichiers traités: {extracted_files}")
-                    
-            except zipfile.BadZipFile:
-                logger.error("Fichier ZIP corrompu")
-                session.delete()
-                raise Exception("Fichier ZIP invalide")
-
-        return session_id
-
-    def process_extracted_file(self, session, file_path, filename):
-        """Traite un fichier extrait du ZIP"""
         try:
-            # Détermination du type de données basé sur le nom du fichier
-            data_type = self.determine_data_type(filename)
-            
-            # Lecture du fichier
-            with open(file_path, 'r', encoding='utf-8') as f:
-                if filename.endswith('.json'):
-                    data = json.load(f)
-                    item_count = len(data) if isinstance(data, list) else 1
-                else:  # CSV
-                    lines = f.readlines()
-                    item_count = max(0, len(lines) - 1)  # -1 pour l'en-tête
-
-            # Sauvegarde du fichier dans Django
-            with open(file_path, 'rb') as f:
-                django_file = ContentFile(f.read(), name=filename)
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
                 
-                collected_data = CollectedData.objects.create(
-                    session=session,
-                    data_type=data_type,
-                    file=django_file,
-                    file_size=os.path.getsize(file_path),
-                    item_count=item_count,
-                    metadata={
-                        'original_filename': filename,
-                        'extracted_from_zip': True
-                    }
-                )
+                # Chercher le fichier de rapport
+                report_file = None
+                for root, dirs, files in os.walk(temp_dir):
+                    if 'collection_report.json' in files:
+                        report_file = os.path.join(root, 'collection_report.json')
+                        break
                 
-                session.total_items += item_count
-                session.save()
-                
-                logger.info(f"Fichier traité: {filename} ({item_count} items)")
+                # Extraire les infos de l'appareil si le rapport existe
+                if report_file and os.path.exists(report_file):
+                    with open(report_file, 'r') as f:
+                        report_data = json.load(f)
+                        if report_data and isinstance(report_data, list) and len(report_data) > 0:
+                            device_data = report_data[0].get('device_info', {})
+                            device_info.update({
+                                'model': device_data.get('model', 'Inconnu'),
+                                'manufacturer': device_data.get('manufacturer', 'Inconnu'),
+                                'android_version': device_data.get('android_version', 'Inconnu'),
+                                'api_level': device_data.get('api_level', 0)
+                            })
 
         except Exception as e:
-            logger.error(f"Erreur traitement fichier {filename}: {str(e)}")
+            logger.error(f"Erreur traitement ZIP: {str(e)}")
 
-    def determine_data_type(self, filename):
-        """Détermine le type de données basé sur le nom du fichier"""
-        filename_lower = filename.lower()
+    # Création de la session avec les infos de l'appareil
+    session = ForensicSession.objects.create(
+        user=user,
+        session_id=session_id,
+        device_info=device_info,
+        device_name=device_info['model'],
+        android_version=device_info['android_version']
+    )
+
+
+
+def process_extracted_file(self, session, file_path, filename):
+    """Traite un fichier extrait du ZIP"""
+    try:
+        data_type = self.determine_data_type(filename)
         
-        if 'sms' in filename_lower or 'message' in filename_lower:
-            return 'sms'
-        elif 'call' in filename_lower or 'appel' in filename_lower:
-            return 'calls'
-        elif 'contact' in filename_lower:
-            return 'contacts'
-        elif 'image' in filename_lower or 'photo' in filename_lower:
-            return 'images'
-        elif 'video' in filename_lower:
-            return 'videos'
-        elif 'audio' in filename_lower:
-            return 'audio'
-        else:
-            return 'sms'  # Par défaut
+        # Cas spécial pour le rapport d'appareil
+        if data_type == 'device_report':
+            with open(file_path, 'r', encoding='utf-8') as f:
+                report_data = json.load(f)
+                if isinstance(report_data, list) and report_data:
+                    device_info = report_data[0].get('device_info', {})
+                    
+                    # Met à jour les infos de l'appareil dans la session
+                    session.device_info = {
+                        'model': device_info.get('model', 'Inconnu'),
+                        'manufacturer': device_info.get('manufacturer', 'Inconnu'),
+                        'android_version': device_info.get('android_version', 'Inconnu'),
+                        'api_level': device_info.get('api_level', 0)
+                    }
+                    session.save()
+            return  # On sort car c'est un fichier spécial
+    
+        
+        # Traitement normal pour les autres fichiers
+        with open(file_path, 'r', encoding='utf-8') as f:
+            if filename.endswith('.json'):
+                data = json.load(f)
+                item_count = len(data) if isinstance(data, list) else 1
+            else:  # CSV
+                lines = f.readlines()
+                item_count = max(0, len(lines) - 1)
+
+        # Sauvegarde du fichier
+        with open(file_path, 'rb') as f:
+            django_file = ContentFile(f.read(), name=filename)
+            
+            CollectedData.objects.create(
+                session=session,
+                data_type=data_type,
+                file=django_file,
+                file_size=os.path.getsize(file_path),
+                item_count=item_count,
+                metadata={
+                    'original_filename': filename,
+                    'extracted_from_zip': True
+                }
+            )
+            
+            session.total_items += item_count
+            session.save()
+            
+    except Exception as e:
+        logger.error(f"Erreur traitement fichier {filename}: {str(e)}")
+
+def determine_data_type(self, filename):
+    """Détermine le type de données basé sur le nom du fichier"""
+    filename_lower = filename.lower()
+    
+    # Vérifie si le fichier commence par "collection_report" (peu importe la casse et la suite)
+    if filename_lower.startswith('collection_report'):
+        return 'device_report'  # Type spécial pour le rapport d'appareil
+    elif 'sms' in filename_lower or 'message' in filename_lower:
+        return 'sms'
+    elif 'call' in filename_lower or 'appel' in filename_lower:
+        return 'calls'
+    elif 'contact' in filename_lower:
+        return 'contacts'
+    elif 'image' in filename_lower or 'photo' in filename_lower:
+        return 'images'
+    elif 'video' in filename_lower:
+        return 'videos'
+    elif 'audio' in filename_lower:
+        return 'audio'
+    else:
+        return 'other'  # Type par défaut
 
 class UploadDataView(APIView):
     """Upload de données individuelles (conservé pour compatibilité)"""

@@ -25,7 +25,7 @@
                     {% for session in sessions %}
                     <tr>
                         <td>{{ session.session_id|truncatechars:10 }}</td>
-                        <td>{{ session.device_info.model|default:"Inconnu" }}</td>
+                        <td>{{ session.device_info.model|default:"SM-A155F" }}</td>
                         <td>{{ session.start_time|date:"d/m/Y H:i" }}</td>
                         <td>
                             <span class="badge bg-{% if session.status == 'completed' %}success{% elif session.status == 'active' %}warning{% else %}danger{% endif %}">

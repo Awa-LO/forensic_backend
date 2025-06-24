@@ -36,8 +36,7 @@ urlpatterns = [
     path('api/v1/', include('api.urls')),
     
     # Dashboard Web
-    path('dashboard/', include('dashboard.urls')),
-    
+    path('dashboard/', include('dashboard.urls'))
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # Configuration pour le debug

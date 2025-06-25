@@ -1,0 +1,25 @@
+[
+  {
+    "collection_date": "2025-06-24 17:57:24",
+    "total_items": 222,
+    "sms_count": 0,
+    "call_logs_count": 0,
+    "contacts_count": 0,
+    "images_count": 5,
+    "videos_count": 0,
+    "audio_count": 217,
+    "permissions_granted": {
+      "sms": false,
+      "call_log": false,
+      "contacts": false,
+      "media": true,
+      "notifications": true
+    },
+    "device_info": {
+      "model": "SM-A155F",
+      "manufacturer": "samsung",
+      "android_version": "14",
+      "api_level": 34
+    }
+  }
+]

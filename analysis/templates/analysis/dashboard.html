@@ -1,0 +1,59 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3><i class="bi bi-activity"></i> Tableau de Bord Analytique</h3>
+        </div>
+        
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Session</th>
+                            <th>Appareil</th>
+                            <th>Données</th>
+                            <th>Analyses</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in sessions %}
+                        <tr>
+                            <td>{{ session.session_id|truncatechars:9 }}</td>
+                            <td>{{ session.device_info.model|default:"Inconnu" }}</td>
+                            <td>
+                                {% for data in session.collected_items.all %}
+                                <span class="badge bg-secondary">{{ data.get_data_type_display }}</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for data in session.collected_items.all %}
+                                <span class="badge bg-{% if data.results.exists %}success{% else %}warning{% endif %}">
+                                    {{ data.results.count }}
+                                </span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                <a href="{% url 'analysis:session_analysis' session.session_id %}" 
+                                   class="btn btn-sm btn-primary">
+                                   <i class="bi bi-graph-up"></i> Analyser
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                Aucune session à analyser
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

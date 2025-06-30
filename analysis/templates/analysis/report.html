@@ -1,0 +1,52 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3>Rapport d'Analyse - Session {{ session.session_id }}</h3>
+        </div>
+        <div class="card-body">
+            <!-- Section Fraude -->
+            {% if fraud_results %}
+            <div class="mb-4">
+                <h4><i class="bi bi-exclamation-triangle"></i> Détection de Fraude</h4>
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Extrait</th>
+                            <th>Mots-clés</th>
+                            <th>Confiance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for result in fraud_results %}
+                        <tr class="{% if result.is_critical %}table-danger{% endif %}">
+                            <td>{{ result.result_json.text }}</td>
+                            <td>{{ result.result_json.keywords|join:", " }}</td>
+                            <td>{{ result.confidence|floatformat:0 }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Résumé LLM -->
+            {% if llm_summary %}
+            <div class="mb-4">
+                <h4><i class="bi bi-robot"></i> Synthèse des Risques</h4>
+                <div class="alert alert-info">
+                    {{ llm_summary.result_json }}
+                </div>
+            </div>
+            {% endif %}
+
+            <a href="{% url 'analysis:download_report' session.session_id %}" 
+               class="btn btn-primary">
+               <i class="bi bi-download"></i> Télécharger le PDF
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

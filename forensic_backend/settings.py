@@ -195,3 +195,18 @@ LOGGING = {
         },
     },
 }
+
+# settings.py
+AI_CONFIG = {
+    'ollama': {
+        'base_url': 'http://localhost:11434',
+        'model': 'phi3',
+        'timeout': 60
+    },
+    'fraud_keywords': ['fraude', 'urgence', 'mot de passe', 'argent', 'banque'],
+    'anomaly_threshold': 0.7
+}
+
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+REPORTS_DIR = os.path.join(MEDIA_ROOT, 'reports')
+os.makedirs(REPORTS_DIR, exist_ok=True)

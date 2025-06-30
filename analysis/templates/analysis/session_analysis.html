@@ -1,0 +1,58 @@
+{% extends "dashboard/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="card shadow-lg mt-4">
+        <div class="card-header bg-dark text-white">
+            <h3><i class="bi bi-activity"></i> Analyse Complète - Session {{ session.session_id }}</h3>
+        </div>
+        
+        <div class="card-body">
+            <!-- Onglets -->
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#fraud">
+                        <i class="bi bi-shield-exclamation"></i> Fraude
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#sentiment">
+                        <i class="bi bi-emoji-frown"></i> Sentiments
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#technical">
+                        <i class="bi bi-code-square"></i> Technique
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Contenu des onglets -->
+            <div class="tab-content">
+                <!-- Onglet Fraude -->
+                <div class="tab-pane fade show active" id="fraud">
+                    {% include "analysis/partials/fraud_tab.html" %}
+                </div>
+                
+                <!-- Onglet Sentiments -->
+                <div class="tab-pane fade" id="sentiment">
+                    {% include "analysis/partials/sentiment_tab.html" %}
+                </div>
+                
+                <!-- Onglet Technique -->
+                <div class="tab-pane fade" id="technical">
+                    {% include "analysis/partials/technical_tab.html" %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-footer">
+            <a href="{% url 'analysis:download_report' session.session_id %}" 
+               class="btn btn-success">
+               <i class="bi bi-file-earmark-pdf"></i> Exporter le rapport complet
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

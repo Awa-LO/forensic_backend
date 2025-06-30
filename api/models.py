@@ -102,3 +102,16 @@ class CollectedData(models.Model):
 
     def __str__(self):
         return f"{self.get_data_type_display()} ({self.item_count} items)"
+    
+
+    def get_file_content(self):
+        """Retourne le contenu analysable du fichier"""
+        if self.file.name.endswith('.json'):
+            with self.file.open('r') as f:
+                return json.load(f)
+        elif self.file.name.endswith('.csv'):
+            import pandas as pd
+            return pd.read_csv(self.file.path).to_dict('records')
+        return None
+
+        

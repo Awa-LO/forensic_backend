@@ -1,0 +1,53 @@
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                Répartition des Émotions
+            </div>
+            <div class="card-body">
+                <canvas id="sentimentChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                Détails
+            </div>
+            <div class="card-body">
+                {% for emotion, value in sentiment_results.items %}
+                <div class="mb-2">
+                    <strong>{{ emotion|title }}:</strong>
+                    <div class="progress">
+                        <div class="progress-bar bg-{{ emotion }}" 
+                             style="width: {{ value|multiply:100 }}%">
+                            {{ value|floatformat:2 }}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Script pour le chart (utilisez Chart.js)
+const ctx = document.getElementById('sentimentChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: {{ sentiment_results.keys|json_script }},
+        datasets: [{
+            data: {{ sentiment_results.values|json_script }},
+            backgroundColor: [
+                '#dc3545', // angry
+                '#fd7e14', // happy
+                '#ffc107', // surprise
+                '#20c997', // sad
+                '#0dcaf0'  // fear
+            ]
+        }]
+    }
+});
+</script>

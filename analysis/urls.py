@@ -7,6 +7,7 @@ from .views import (
     ReportDetailView
 )
 from .views import session_analysis_view
+from .views import test_analysis_pipeline 
 from . import views 
 from .views import generate_report
 app_name = 'analysis'
@@ -18,8 +19,10 @@ urlpatterns = [
     path('sessions/<uuid:session_id>/report/', generate_report, name='generate_report'),
     path('reports/<int:pk>/', ReportDetailView.as_view(), name='report_detail'),
     path('sessions/<str:session_id>/', session_analysis_view, name='session_analysis'),
+       path('sessions/<str:session_id>/test_pipeline/', test_analysis_pipeline, name='test_pipeline'),
     path('sessions/<uuid:session_id>/analyze/', views.analyze_session, name='analyze'),
     path('sessions/<str:session_id>/analyze/', AnalyzeDataView.as_view(), name='analyze'),
     path('sessions/<str:session_id>/download-report/', DownloadReportView.as_view(), name='download_report'),
 ]
 
+ 

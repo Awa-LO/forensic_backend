@@ -210,3 +210,7 @@ AI_CONFIG = {
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 REPORTS_DIR = os.path.join(MEDIA_ROOT, 'reports')
 os.makedirs(REPORTS_DIR, exist_ok=True)
+
+# Configuration spécifique pour les données forensiques
+FORENSIC_DATA_DIR = 'forensic_data'
+FORENSIC_UPLOAD_TO = f'{FORENSIC_DATA_DIR}/%Y/%m/%d'

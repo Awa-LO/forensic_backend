@@ -4,6 +4,7 @@ import tempfile
 import json
 import os
 from collections import defaultdict
+import ollama
 
 # Django imports
 from django.conf import settings
@@ -154,6 +155,7 @@ class SentimentAnalyzer:
 
 class ForensicAI:
     def __init__(self):
+        self.timeout = 30  # 30 secondes timeout
         try:
             self.phi3_config = settings.AI_CONFIG.get('ollama', {})
         except AttributeError:
@@ -161,55 +163,143 @@ class ForensicAI:
             self.phi3_config = {'model': 'phi3:mini'}
 
     def analyze(self, data, data_type):
-        """Analyse principale des données forensiques"""
+        """Méthode principale d'analyse des données"""
+        try:
+            # Debug du contenu des données
+            debug_info = self.debug_data_content(data, data_type)
+            logger.info(f"Debug info: {debug_info}")
+            
+            # Vérification des données d'entrée
+            if not data:
+                return {
+                    'error': 'No data provided',
+                    'data_type': data_type
+                }
+
+            results = {
+                'data_type': data_type,
+                'item_count': len(data) if isinstance(data, list) else 1
+            }
+
+            # Analyse spécifique par type de données
+            if data_type == 'sms':
+                results.update(self._analyze_text_data(data))
+            elif data_type == 'images':
+                results.update(self._analyze_image_data(data))
+            elif data_type == 'calls':
+                results.update(self._analyze_call_data(data))
+            else:
+                results.update(self._analyze_generic_data(data))
+
+            # Ajout du résumé LLM pour tous les types
+            results['llm_summary'] = self._get_llm_summary(data, data_type)
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Erreur lors de l'analyse: {str(e)}")
+            return {
+                'error': str(e),
+                'data_type': data_type
+            }
+
+    def debug_data_content(self, data, data_type):
+        """Méthode pour debugger le contenu avant analyse"""
+        logger.info(f"Debug data_type: {data_type}")
+        logger.info(f"Type données: {type(data)}")
+        
+        sample = None
+        if isinstance(data, list):
+            sample = data[:3]
+        elif isinstance(data, dict):
+            sample = dict(list(data.items())[:3])
+        else:
+            sample = str(data)[:100]
+            
+        logger.info(f"Extrait données: {sample}")
+        
         return {
-            'fraud': self._detect_fraud(data, data_type),
-            'sentiment': self._analyze_sentiment(data),
-            'anomalies': self._detect_anomalies(data),
-            'llm_summary': self._get_llm_summary(data, data_type)
+            'data_type': str(data_type),
+            'input_type': str(type(data)),
+            'sample_data': sample
+        }
+
+    def _analyze_text_data(self, text_data):
+        """Analyse des données textuelles (SMS, contacts, etc.)"""
+        if not isinstance(text_data, list):
+            text_data = [text_data]
+
+        return {
+            'fraud': self._detect_fraud(text_data, 'sms'),
+            'sentiment': self._analyze_sentiment(text_data),
+            'anomalies': self._detect_anomalies(text_data)
+        }
+
+    def _analyze_image_data(self, image_data):
+        """Analyse des métadonnées d'images"""
+        return {
+            'metadata': {
+                'count': len(image_data),
+                'sample': [img.get('name') for img in image_data[:3]]
+            },
+            'anomalies': self._detect_anomalies(image_data)
+        }
+
+    def _analyze_call_data(self, call_data):
+        """Analyse des logs d'appels"""
+        return {
+            'stats': {
+                'total_calls': len(call_data),
+                'duration_avg': sum(c.get('duration', 0) for c in call_data) / len(call_data) if call_data else 0
+            },
+            'anomalies': self._detect_anomalies(call_data)
+        }
+
+    def _analyze_generic_data(self, data):
+        """Analyse générique pour les autres types de données"""
+        return {
+            'data_sample': data[:3] if isinstance(data, list) else data
         }
 
     def _detect_fraud(self, data, data_type):
         """Détection de fraude basée sur des mots-clés"""
-        if data_type != 'sms':
-            return []
-        
-        # Mots-clés de fraude par défaut si pas de configuration
-        try:
-            fraud_keywords = settings.AI_CONFIG.get('fraud_keywords', [
-                'urgent', 'félicitations', 'gratuit', 'cliquez', 'argent', 
-                'prix', 'loterie', 'banque', 'compte', 'virement'
-            ])
-        except AttributeError:
-            fraud_keywords = ['urgent', 'félicitations', 'gratuit', 'cliquez']
-        
+        fraud_keywords = getattr(settings, 'AI_CONFIG', {}).get('fraud_keywords', [
+            'urgent', 'félicitations', 'gratuit', 'cliquez', 'argent'
+        ])
+
         frauds = []
-        data_list = data if isinstance(data, list) else [{'body': str(data)}]
-        
-        for item in data_list[:1000]:  # Limite pour performance
-            text = str(item.get('body', item) if isinstance(item, dict) else item).lower()
-            
+        for item in data:
+            text = str(item.get('body', item)).lower()
             found_keywords = [kw for kw in fraud_keywords if kw in text]
+            
             if found_keywords:
                 frauds.append({
                     'text': text[:100] + '...' if len(text) > 100 else text,
                     'keywords': found_keywords,
-                    'confidence': min(0.99, len(found_keywords) * 0.3 + len(text) / 200)
+                    'confidence': min(0.99, len(found_keywords) * 0.3)
                 })
-        return frauds
 
-    def _analyze_sentiment(self, data):
-        """Utilise le nouvel analyseur de sentiment amélioré"""
-        if isinstance(data, list) and data:
-            # Analyser un échantillon des données
-            text_sample = ' '.join(
-                str(d.get('body', d) if isinstance(d, dict) else d) 
-                for d in data[:10]
-            )
-        else:
-            text_sample = str(data)
-        
-        return SentimentAnalyzer.analyze_sentiment(text_sample)
+        return frauds[:100]  # Limite à 100 résultats
+
+    def _analyze_sentiment(self, text_data):
+        """Analyse de sentiment avec text2emotion"""
+        try:
+            if isinstance(text_data, list):
+                text = ' '.join(str(item.get('body', item)) for item in text_data)
+            else:
+                text = str(text_data)
+
+            return SentimentAnalyzer.analyze_sentiment(text)
+        except Exception as e:
+            logger.warning(f"Erreur analyse sentiment: {str(e)}")
+            return {
+                'happy': 0,
+                'angry': 0,
+                'surprise': 0,
+                'sad': 0,
+                'fear': 0,
+                'error': str(e)
+            }
 
     def _detect_anomalies(self, data):
         """Détection d'anomalies avec Isolation Forest"""
@@ -224,10 +314,9 @@ class ForensicAI:
                 
                 return {
                     'anomaly_scores': scores.tolist(),
-                    'anomaly_count': sum(1 for score in scores if score < -0.1),
-                    'total_samples': len(scores)
+                    'anomaly_count': sum(1 for score in scores if score < -0.1)
                 }
-            return {'message': 'Pas assez de données numériques pour l\'analyse d\'anomalies'}
+            return {'message': 'Pas assez de données numériques'}
             
         except Exception as e:
             logger.error(f"Erreur détection anomalies: {str(e)}")
@@ -236,34 +325,23 @@ class ForensicAI:
     def _get_llm_summary(self, data, data_type):
         """Génère un résumé avec Ollama/LLM"""
         try:
-            import ollama
-            
-            # Préparer un échantillon plus représentatif
-            if isinstance(data, list):
-                sample_data = data[:5]  # Augmenter l'échantillon
-            else:
-                sample_data = data
-            
-            prompt = f"""Analyse forensique des {data_type}:
-            
-Données: {json.dumps(sample_data, ensure_ascii=False)[:1500]}...
+            if not isinstance(data, list):
+                data = [data]
 
-Identifie les risques principaux, patterns suspects et recommandations de sécurité.
-Réponds en français, de manière concise et professionnelle."""
+            prompt = f"""Analyse forensique des {data_type}:
+            Données: {json.dumps(data[:3], ensure_ascii=False)[:1000]}...
+            Fais un résumé concis en 3 points maximum en français."""
             
             response = ollama.chat(
                 model=self.phi3_config.get('model', 'phi3:mini'),
                 messages=[{'role': 'user', 'content': prompt}],
-                options={'temperature': 0.1, 'top_p': 0.9}
+                options={'temperature': 0.1}
             )
             return response['message']['content']
             
-        except ImportError:
-            logger.warning("Ollama non disponible")
-            return "Analyse LLM indisponible - Ollama non installé"
         except Exception as e:
             logger.error(f"Erreur LLM: {str(e)}")
-            return f"Analyse LLM indisponible: {str(e)}"
+            return f"Résumé indisponible: {str(e)}"
 
 class PDFGenerator:
     @staticmethod

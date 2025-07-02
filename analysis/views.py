@@ -142,25 +142,102 @@ from .services import ForensicAI
 from api.models import ForensicSession, CollectedData
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
+import logging
+logger = logging.getLogger(__name__)
 
 @require_POST
 @login_required
 
 def analyze_session(request, session_id):
-    """Vue pour lancer l'analyse d'une session"""
-    session = get_object_or_404(ForensicSession, session_id=session_id)
-    data_items = CollectedData.objects.filter(session=session)
-    
-    if not data_items.exists():
-        return JsonResponse({'error': 'Aucune donnée à analyser'}, status=400)
-    
+    """Version complètement revue de la vue d'analyse"""
     try:
+        # 1. Vérification de base
+        session = get_object_or_404(ForensicSession, session_id=session_id, user=request.user)
+        data_items = session.collected_items.all()
+        
+        if not data_items.exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Aucune donnée à analyser'
+            }, status=400)
+
+        # 2. Initialisation
         ai = ForensicAI()
-        for data in data_items:
-            ai.analyze(data.get_file_content(), data.data_type)
-        return redirect('analysis:session_analysis', session_id=session_id)
+        results = []
+        analysed_count = 0
+        failed_count = 0
+        error_details = []
+
+        # 3. Analyse séquentielle avec logging
+        for index, data in enumerate(data_items, 1):
+            try:
+                logger.info(f"Analyse item {index}/{len(data_items)} (ID: {data.id}, Type: {data.data_type})")
+                
+                content = data.get_file_content()
+                if content is None:
+                    error_details.append(f"Donnée {data.id}: contenu vide ou inaccessible")
+                    failed_count += 1
+                    continue
+                
+                # Journalisation du contenu (debug)
+                logger.debug(f"Contenu à analyser (extrait): {str(content)[:200]}...")
+                
+                # Analyse réelle
+                result = ai.analyze(content, data.data_type)
+                if not result:
+                    error_details.append(f"Donnée {data.id}: analyse retour vide")
+                    failed_count += 1
+                    continue
+                
+                # Sauvegarde des résultats
+                for res_type, res_data in result.items():
+                    AnalysisResult.objects.update_or_create(
+                        data=data,
+                        analysis_type=res_type,
+                        defaults={
+                            'result_json': res_data,
+                            'confidence': 0.8 if res_type == 'llm_summary' else 0.9,
+                            'is_critical': res_type == 'fraud' and bool(res_data)
+                        }
+                    )
+                
+                analysed_count += 1
+                results.append({'data_id': data.id, 'result_keys': list(result.keys())})
+                
+            except Exception as e:
+                logger.error(f"Échec analyse donnée {data.id}: {str(e)}")
+                failed_count += 1
+                error_details.append(f"Donnée {data.id}: {str(e)}")
+                continue
+
+        # 4. Mise à jour de la session
+        session.refresh_from_db()
+        
+        # 5. Réponse détaillée
+        response_data = {
+            'status': 'success',
+            'session_id': session_id,
+            'analysed_items': analysed_count,
+            'failed_items': failed_count,
+            'total_items': len(data_items),
+            'results_count': len(results),
+            'message': (
+                f"Analyse terminée - {analysed_count} succès, {failed_count} échecs. "
+                f"Voir les logs pour détails."
+            )
+        }
+        
+        if error_details:
+            response_data['error_details'] = error_details[:10]  # Limite à 10 erreurs
+        
+        return JsonResponse(response_data)
+        
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.critical(f"Erreur critique dans analyze_session: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': f"Erreur système: {str(e)}"
+        }, status=500)
     
 
 
@@ -185,3 +262,89 @@ def generate_report(request, session_id):
     
     # Retourner le fichier PDF
     return FileResponse(open(pdf_path, 'rb'), filename=f'report_{session_id}.pdf')
+
+
+
+
+
+
+# Ajoutez ces imports en haut du fichier
+from django.conf import settings  # Pour résoudre 'settings' is not defined
+import traceback  # Pour résoudre 'traceback' is not defined
+import os
+import logging
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from api.models import ForensicSession
+from .services import ForensicAI
+
+logger = logging.getLogger(__name__)
+
+@login_required
+def test_analysis_pipeline(request, session_id):
+    """
+    Vue de test pour vérifier chaque étape du processus d'analyse
+    Accès via: /analysis/test_pipeline/<session_id>/
+    """
+    try:
+        session = get_object_or_404(ForensicSession, session_id=session_id, user=request.user)
+        test_results = []
+        
+        # Limite aux 5 premiers éléments pour le test
+        for data in session.collected_items.all()[:5]:
+            entry = {
+                'data_id': data.id,
+                'data_type': data.data_type,
+                'file_path': data.get_absolute_file_path(),
+                'file_exists': os.path.exists(data.get_absolute_file_path()),
+                'file_size': os.path.getsize(data.get_absolute_file_path()) if os.path.exists(data.get_absolute_file_path()) else 0
+            }
+            
+            # Test lecture fichier
+            try:
+                content = data.get_file_content()
+                entry['content_type'] = type(content).__name__ if content else 'None'
+                entry['content_length'] = len(content) if hasattr(content, '__len__') else 'N/A'
+                
+                # Sample du contenu
+                if isinstance(content, (list, dict, str)):
+                    entry['content_sample'] = str(content)[:200] + ('...' if len(str(content)) > 200 else '')
+                else:
+                    entry['content_sample'] = 'Type non affichable'
+                
+                # Test analyse
+                if content:
+                    ai = ForensicAI()
+                    try:
+                        result = ai.analyze(content, data.data_type)
+                        entry['analysis_success'] = bool(result)
+                        if result:
+                            entry['result_keys'] = list(result.keys())
+                            entry['result_sample'] = {k: str(v)[:100] for k, v in list(result.items())[:2]}
+                    except Exception as e:
+                        entry['analysis_error'] = str(e)
+                        logger.error(f"Test failed for data {data.id}: {str(e)}", exc_info=True)
+            
+            except Exception as e:
+                entry['content_error'] = str(e)
+                logger.error(f"Failed to read content for data {data.id}: {str(e)}", exc_info=True)
+            
+            test_results.append(entry)
+        
+        return JsonResponse({
+            'session': session_id,
+            'test_results': test_results,
+            'debug_info': {
+                'MEDIA_ROOT': settings.MEDIA_ROOT,
+                'ai_config': getattr(settings, 'AI_CONFIG', {}),
+                'total_items': session.collected_items.count()
+            }
+        })
+        
+    except Exception as e:
+        logger.exception("Critical error in test_analysis_pipeline")
+        return JsonResponse({
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }, status=500)

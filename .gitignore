@@ -1,0 +1,12 @@
+# Exclure le dossier media
+media/
+
+# Exclure les fichiers compilés Python
+__pycache__/
+*.pyc
+
+# Exclure la base SQLite
+db.sqlite3
+
+# Exclure les fichiers logs
+*.log

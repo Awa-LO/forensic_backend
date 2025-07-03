@@ -1,74 +1,127 @@
 {% extends "dashboard/base.html" %}
-{% load static humanize custom_filters %} 
+{% load static humanize %}
 
 {% block extra_css %}
 <style>
-    .analysis-card {
+    .session-card {
         transition: all 0.3s ease;
-        border-left: 4px solid transparent;
     }
-    .analysis-card.critical {
-        border-left-color: #dc3545;
-        background-color: rgba(220, 53, 69, 0.05);
+    .status-badge {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
     }
-    .progress-thin {
-        height: 5px;
-    }
-    .nav-tabs .nav-link.active {
-        font-weight: bold;
-        border-bottom: 3px solid #0d6efd;
+    .action-button {
+        min-width: 200px;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 500;
     }
     .data-type-badge {
-        font-size: 0.8rem;
+        margin: 0.25rem;
+        padding: 0.5rem 1rem;
+    }
+    .device-info {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+    }
+    .analysis-progress {
+        display: none;
+    }
+    .analysis-progress.show {
+        display: block;
+    }
+    .spinner-grow {
+        width: 1rem;
+        height: 1rem;
+    }
+    .critical-alert {
+        border-left: 4px solid #dc3545;
+        background: rgba(220, 53, 69, 0.1);
+    }
+    .success-alert {
+        border-left: 4px solid #28a745;
+        background: rgba(40, 167, 69, 0.1);
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid">
+    <!-- En-tête de session -->
     <div class="row mb-4">
         <div class="col">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h3>
-                        <i class="bi bi-phone"></i> Session : {{ session.session_id|truncatechars:12 }}
-                    </h3>
-                    <div>
-                        <span class="badge bg-{% if session.status == 'completed' %}success{% else %}warning{% endif %}">
-                            {{ session.get_status_display }}
-                        </span>
+            <div class="card shadow session-card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0">
+                            <i class="bi bi-phone"></i> 
+                            Session {{ session.session_id|truncatechars:12 }}
+                        </h3>
+                        <div class="d-flex gap-2">
+                            <span class="badge bg-{% if session.status == 'completed' %}success{% else %}warning{% endif %} status-badge">
+                                {{ session.get_status_display }}
+                            </span>
+                            {% if is_analyzed %}
+                            <span class="badge bg-success status-badge">
+                                <i class="bi bi-check-circle"></i> Analysée
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning status-badge">
+                                <i class="bi bi-clock"></i> En attente d'analyse
+                            </span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
+                
                 <div class="card-body">
                     <div class="row">
+                        <!-- Informations de l'appareil -->
                         <div class="col-md-6">
-                            <h4><i class="bi bi-phone"></i> Appareil source</h4>
-                            <table class="table table-sm">
-                                <tbody>
-                                    <tr>
-                                        <th>Modèle</th>
-                                        <td>{{ session.device_info.model|default:"Inconnu" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Version Android</th>
-                                        <td>{{ session.device_info.android_version|default:"Inconnu" }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Date de collecte</th>
-                                        <td>{{ session.start_time|date:"d/m/Y H:i" }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <div class="device-info">
+                                <h5><i class="bi bi-phone"></i> Appareil source</h5>
+                                <table class="table table-sm table-borderless">
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Modèle:</strong></td>
+                                            <td>{{ device_info.model|default:"Non spécifié" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Version Android:</strong></td>
+                                            <td>{{ device_info.android_version|default:"Non spécifié" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Date de collecte:</strong></td>
+                                            <td>{{ session.start_time|date:"d/m/Y H:i" }}</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Nombre d'éléments:</strong></td>
+                                            <td>{{ data_count }} éléments collectés</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
+                        
+                        <!-- Types de données -->
                         <div class="col-md-6">
-                            <h4><i class="bi bi-database"></i> Données collectées</h4>
-                            <div class="d-flex flex-wrap gap-2">
+                            <h5><i class="bi bi-database"></i> Données collectées</h5>
+                            <div class="d-flex flex-wrap">
                                 {% for data in session.collected_items.all %}
                                 <span class="badge bg-secondary data-type-badge">
-                                    {{ data.get_data_type_display }} ({{ data.item_count }})
+                                    {{ data.get_data_type_display }}
+                                    <span class="badge bg-light text-dark ms-1">{{ data.item_count|default:1 }}</span>
                                 </span>
                                 {% endfor %}
                             </div>
+                            
+                            {% if not session.collected_items.exists %}
+                            <div class="alert alert-warning mt-3">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Aucune donnée collectée dans cette session.
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -76,177 +129,168 @@
         </div>
     </div>
 
+    <!-- Section d'analyse -->
     <div class="row">
         <div class="col">
             <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <ul class="nav nav-tabs card-header-tabs">
-                        <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#fraud">
-                                <i class="bi bi-shield-exclamation"></i> Détection de fraude
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#sentiment">
-                                <i class="bi bi-emoji-frown"></i> Analyse de sentiments
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#technical">
-                                <i class="bi bi-code-square"></i> Analyse technique
-                            </a>
-                        </li>
-                    </ul>
+                <div class="card-header bg-secondary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-robot"></i> Analyse forensique
+                    </h4>
                 </div>
+                
                 <div class="card-body">
-                    <div class="tab-content">
-                        <!-- Onglet Fraude -->
-                        <div class="tab-pane fade show active" id="fraud">
-                            {% if fraud_results %}
-                            <div class="list-group">
-                                {% for result in fraud_results %}
-                                <div class="list-group-item analysis-card {% if result.is_critical %}critical{% endif %}">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <h5>{{ result.result_json.type|default:"Détection de fraude" }}</h5>
-                                            <p class="mb-1">{{ result.result_json.description }}</p>
-                                            <div class="progress progress-thin mt-2">
-                                                <div class="progress-bar bg-danger" 
-                                                     style="width: {{ result.confidence }}%">
-                                                </div>
-                                            </div>
-                                            <small class="text-muted">Confiance: {{ result.confidence|floatformat:0 }}%</small>
-                                        </div>
-                                        {% if result.is_critical %}
-                                        <span class="badge bg-danger">
-                                            <i class="bi bi-exclamation-triangle-fill"></i> Critique
-                                        </span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% else %}
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-shield-check" style="font-size: 2rem;"></i>
-                                <p class="mt-3">Aucun élément frauduleux détecté</p>
-                                <form action="{% url 'analysis:analyze' session.session_id %}" method="POST">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-robot"></i> Lancer l'analyse
-                                    </button>
-                                </form>
-                            </div>
-                            {% endif %}
+                    {% if not is_analyzed %}
+                    <!-- État: Non analysé -->
+                    <div class="text-center py-5">
+                        <div class="mb-4">
+                            <i class="bi bi-robot text-muted" style="font-size: 4rem;"></i>
                         </div>
-
-                        <!-- Onglet Sentiments -->
-                        <div class="tab-pane fade" id="sentiment">
-                            {% if sentiment_results %}
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header bg-info text-white">
-                                            Répartition des émotions
-                                        </div>
-                                        <div class="card-body">
-                                            <canvas id="sentimentChart" height="250"></canvas>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-header bg-info text-white">
-                                            Détails des sentiments
-                                        </div>
-                                        <div class="card-body">
-                                            {% for emotion, value in sentiment_results.items %}
-                                            <div class="mb-3">
-                                                <strong>{{ emotion|title }}:</strong>
-                                                <div class="progress">
-                                                    <div class="progress-bar bg-{{ emotion }}" 
-                                                         style="width: {{ value|floatformat:1 }}0%">
-                                                        {{ value|floatformat:2 }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {% else %}
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-emoji-neutral" style="font-size: 2rem;"></i>
-                                <p class="mt-3">Aucune analyse de sentiment disponible</p>
-                                <form action="{% url 'analysis:analyze' session.session_id %}" method="POST">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-robot"></i> Analyser les sentiments
-                                    </button>
-                                </form>
-                            </div>
-                            {% endif %}
+                        
+                        <h4 class="text-muted mb-3">Analyse en attente</h4>
+                        <p class="text-muted mb-4">
+                            Cette session contient {{ data_count }} éléments prêts à être analysés.<br>
+                            L'analyse peut prendre quelques minutes selon la quantité de données.
+                        </p>
+                        
+                        {% if session.collected_items.exists %}
+                        <div class="d-grid gap-2 col-6 mx-auto">
+                            <form method="post" action="{% url 'analysis:analyze' session.session_id %}" id="analysis-form">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-primary action-button" id="analyze-btn">
+                                    <i class="bi bi-play-circle"></i> Lancer l'analyse
+                                </button>
+                            </form>
                         </div>
-
-                        <!-- Onglet Technique -->
-                        <div class="tab-pane fade" id="technical">
-                            {% if technical_results %}
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Type</th>
-                                            <th>Description</th>
-                                            <th>Confiance</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for result in technical_results %}
-                                        <tr>
-                                            <td>{{ result.get_analysis_type_display }}</td>
-                                            <td>{{ result.result_json.summary|truncatechars:100 }}</td>
-                                            <td>
-                                                <div class="progress progress-thin">
-                                                    <div class="progress-bar bg-info" 
-                                                         style="width: {{ result.confidence }}%">
-                                                    </div>
-                                                </div>
-                                                <small>{{ result.confidence|floatformat:0 }}%</small>
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-zoom-in"></i> Détails
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
+                        
+                        <!-- Indicateur de progression -->
+                        <div class="analysis-progress mt-4" id="analysis-progress">
+                            <div class="d-flex justify-content-center align-items-center mb-3">
+                                <div class="spinner-grow text-primary me-2" role="status"></div>
+                                <div class="spinner-grow text-primary me-2" role="status"></div>
+                                <div class="spinner-grow text-primary" role="status"></div>
                             </div>
-                            {% else %}
-                            <div class="text-center py-4 text-muted">
-                                <i class="bi bi-gear" style="font-size: 2rem;"></i>
-                                <p class="mt-3">Aucune analyse technique disponible</p>
-                                <form action="{% url 'analysis:analyze' session.session_id %}" method="POST">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-primary">
-                                        <i class="bi bi-robot"></i> Lancer l'analyse technique
-                                    </button>
-                                </form>
+                            <p class="text-primary">
+                                <strong>Analyse en cours...</strong><br>
+                                <small>Veuillez patienter, cette opération peut prendre quelques minutes.</small>
+                            </p>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Impossible de lancer l'analyse : aucune donnée collectée.
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% else %}
+                    <!-- État: Analysé -->
+                    <div class="text-center py-4">
+                        <div class="mb-4">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                        </div>
+                        
+                        <h4 class="text-success mb-3">Analyse terminée</h4>
+                        
+                        <!-- Résumé rapide -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="card border-{% if fraud_count > 0 %}danger{% else %}success{% endif %}">
+                                    <div class="card-body">
+                                        <h5 class="card-title">
+                                            <i class="bi bi-shield-{% if fraud_count > 0 %}exclamation{% else %}check{% endif %}"></i>
+                                            Fraude
+                                        </h5>
+                                        <p class="card-text">
+                                            {% if fraud_count > 0 %}
+                                            <span class="text-danger"><strong>{{ fraud_count }} élément(s) suspect(s)</strong></span>
+                                            {% else %}
+                                            <span class="text-success">Aucun élément suspect</span>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                            {% endif %}
+                            
+                            <div class="col-md-4">
+                                <div class="card border-{% if technical_count > 0 %}warning{% else %}success{% endif %}">
+                                    <div class="card-body">
+                                        <h5 class="card-title">
+                                            <i class="bi bi-gear"></i>
+                                            Technique
+                                        </h5>
+                                        <p class="card-text">
+                                            {% if technical_count > 0 %}
+                                            <span class="text-warning"><strong>{{ technical_count }} anomalie(s)</strong></span>
+                                            {% else %}
+                                            <span class="text-success">Aucune anomalie</span>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="card border-{% if has_critical %}danger{% else %}info{% endif %}">
+                                    <div class="card-body">
+                                        <h5 class="card-title">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                            Criticité
+                                        </h5>
+                                        <p class="card-text">
+                                            {% if has_critical %}
+                                            <span class="text-danger"><strong>Éléments critiques</strong></span>
+                                            {% else %}
+                                            <span class="text-info">Niveau normal</span>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Alerte globale -->
+                        {% if fraud_count > 0 or has_critical %}
+                        <div class="alert critical-alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>Attention !</strong> Des éléments suspects ont été détectés dans cette session.
+                        </div>
+                        {% else %}
+                        <div class="alert success-alert">
+                            <i class="bi bi-check-circle-fill"></i>
+                            <strong>Bon !</strong> Aucun élément suspect détecté dans cette session.
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Bouton pour voir les résultats complets -->
+                        <div class="d-grid gap-2 col-6 mx-auto">
+                            <a href="{% url 'analysis:session_analysis' session.session_id %}" 
+                               class="btn btn-success action-button">
+                                <i class="bi bi-eye"></i> Voir les résultats complets
+                            </a>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
+                
                 <div class="card-footer d-flex justify-content-between">
-                    <a href="{% url 'dashboard:sessions' %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> Retour aux sessions
+                    <a href="{% url 'analysis:analysis_dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Retour au dashboard
                     </a>
-                    <a href="{% url 'analysis:generate_report' session.session_id %}" class="btn btn-success">
-                        <i class="bi bi-file-earmark-pdf"></i> Générer le rapport complet
-                    </a>
+                    
+                    <div class="d-flex gap-2">
+                        {% if is_analyzed %}
+                        <a href="{% url 'analysis:generate_report' session.session_id %}" 
+                           class="btn btn-outline-primary">
+                            <i class="bi bi-file-earmark-pdf"></i> Générer rapport PDF
+                        </a>
+                        {% endif %}
+                        
+                        <a href="{% url 'analysis:test_pipeline' session.session_id %}" 
+                           class="btn btn-outline-info btn-sm">
+                            <i class="bi bi-bug"></i> Test pipeline
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -254,72 +298,55 @@
 </div>
 
 <script>
-// Variables JavaScript pour les données des sentiments
-{% if sentiment_results %}
-const sentimentData = {
-    {% for emotion, value in sentiment_results.items %}
-    '{{ emotion }}': {{ value }},
-    {% endfor %}
-};
-{% endif %}
-</script>
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-// Graphique des sentiments
-{% if sentiment_results %}
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('sentimentChart').getContext('2d');
+    const analyzeForm = document.getElementById('analysis-form');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const progressDiv = document.getElementById('analysis-progress');
     
-    // Conversion des données pour le graphique
-    const labels = Object.keys(sentimentData);
-    const data = Object.values(sentimentData).map(value => value * 100); // Conversion en pourcentage
-    
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: data,
-                backgroundColor: [
-                    '#dc3545', // angry
-                    '#28a745', // happy
-                    '#ffc107', // surprise
-                    '#6f42c1', // sad
-                    '#fd7e14'  // fear
-                ],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: {
-                    position: 'right',
+    if (analyzeForm) {
+        analyzeForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Désactiver le bouton et afficher le spinner
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Analyse en cours...';
+            progressDiv.classList.add('show');
+            
+            // Envoyer la requête
+            fetch(this.action, {
+                method: 'POST',
+                body: new FormData(this),
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-            }
-        }
-    });
-});
-{% endif %}
-
-// Gestion des onglets
-document.querySelectorAll('.nav-tabs .nav-link').forEach(link => {
-    link.addEventListener('click', function(e) {
-        e.preventDefault();
-        const tabId = this.getAttribute('href');
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.remove('show', 'active');
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                } else {
+                    throw new Error('Erreur réseau');
+                }
+            })
+            .then(data => {
+                if (data.success) {
+                    // Recharger la page pour afficher les résultats
+                    window.location.reload();
+                } else {
+                    throw new Error(data.message || 'Erreur lors de l\'analyse');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'analyse: ' + error.message);
+                
+                // Réactiver le bouton
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = '<i class="bi bi-play-circle"></i> Lancer l\'analyse';
+                progressDiv.classList.remove('show');
+            });
         });
-        document.querySelector(tabId).classList.add('show', 'active');
-        
-        document.querySelectorAll('.nav-tabs .nav-link').forEach(navLink => {
-            navLink.classList.remove('active');
-        });
-        this.classList.add('active');
-    });
+    }
 });
 </script>
 {% endblock %}

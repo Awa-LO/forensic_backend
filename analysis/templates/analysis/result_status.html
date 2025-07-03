@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Analyse - Session {{ session.session_id }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- En-tête -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">
+                Analyse Forensique - Session {{ session.session_id }}
+            </h1>
+            <p class="text-gray-600">
+                Créée le {{ session.created_at|date:"d/m/Y à H:i" }}
+            </p>
+        </div>
+
+        <!-- Zone d'analyse -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div id="analysis-status">
+                {% if analyzing %}
+                    <!-- Analyse en cours -->
+                    <div class="text-center py-8">
+                        <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Analyse en cours...</h2>
+                        <p class="text-gray-600">Veuillez patienter pendant l'analyse des données collectées.</p>
+                        <div class="mt-4">
+                            <div class="bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                     id="progress-bar" style="width: 0%"></div>
+                            </div>
+                            <p class="text-sm text-gray-500 mt-2" id="progress-text">Initialisation...</p>
+                        </div>
+                    </div>
+                {% elif can_analyze %}
+                    <!-- Prêt pour l'analyse -->
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-4">🔍</div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Prêt pour l'analyse</h2>
+                        <p class="text-gray-600 mb-6">
+                            {{ session.collected_items.count }} élément{{ session.collected_items.count|pluralize }} 
+                            collecté{{ session.collected_items.count|pluralize }} prêt{{ session.collected_items.count|pluralize }} à analyser.
+                        </p>
+                        <button id="start-analysis-btn" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+                            Démarrer l'analyse
+                        </button>
+                    </div>
+                {% else %}
+                    <!-- Aucune donnée -->
+                    <div class="text-center py-8">
+                        <div class="text-6xl mb-4">📂</div>
+                        <h2 class="text-xl font-semibold text-gray-800 mb-2">Aucune donnée à analyser</h2>
+                        <p class="text-gray-600 mb-6">
+                            Collectez d'abord des données avant de lancer l'analyse.
+                        </p>
+                        <a href="{% url 'api:session_detail' session.session_id %}" 
+                           class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">
+                            Retour à la session
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Zone de résultats (cachée initialement) -->
+            <div id="analysis-results" class="hidden">

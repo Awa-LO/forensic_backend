@@ -1,3 +1,4 @@
+<!-- analysis/templates/analysis/dashboard.html -->
 {% extends "dashboard/base.html" %}
 
 {% block content %}
@@ -6,7 +7,7 @@
         <div class="card-header bg-primary text-white">
             <h3><i class="bi bi-activity"></i> Tableau de Bord Analytique</h3>
         </div>
-        
+
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-hover">
@@ -15,7 +16,7 @@
                             <th>Session</th>
                             <th>Appareil</th>
                             <th>Données</th>
-                            <th>Analyses</th>
+                            <th>Statut</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -30,16 +31,14 @@
                                 {% endfor %}
                             </td>
                             <td>
-                                {% for data in session.collected_items.all %}
-                                <span class="badge bg-{% if data.results.exists %}success{% else %}warning{% endif %}">
-                                    {{ data.results.count }}
+                                <span class="badge bg-{% if session.is_analyzed %}success{% else %}warning{% endif %}">
+                                    {% if session.is_analyzed %}Analysée{% else %}En attente{% endif %}
                                 </span>
-                                {% endfor %}
                             </td>
                             <td>
-                                <a href="{% url 'analysis:session_analysis' session.session_id %}" 
+                                <a href="{% url 'analysis:session_detail' session.session_id %}" 
                                    class="btn btn-sm btn-primary">
-                                   <i class="bi bi-graph-up"></i> Analyser
+                                   <i class="bi bi-eye"></i> Détails
                                 </a>
                             </td>
                         </tr>

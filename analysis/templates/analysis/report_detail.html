@@ -1,0 +1,16 @@
+{% extends "dashboard/base.html" %}
+
+{% block content %}
+<h1>{{ report.title }}</h1>
+<p>Créé le : {{ report.generated_at|date:"d/m/Y" }}</p>
+
+{% if report.pdf_file %}
+<p><a href="{{ report.pdf_file.url }}">Télécharger le PDF</a></p>
+{% endif %}
+
+<div>
+    {{ report.content|safe }}
+</div>
+
+<p><a href="{% url 'analysis:report_list' %}">← Retour</a></p>
+{% endblock %}

@@ -1,24 +1,74 @@
 {% extends "dashboard/base.html" %}
-{% load static %}
+{% load static humanize %}
+
+{% block extra_css %}
+<style>
+    .risk-level {
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+    .risk-low { color: #28a745; }
+    .risk-medium { color: #ffc107; }
+    .risk-high { color: #dc3545; }
+    .analysis-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+    }
+    .analysis-card.critical {
+        border-left-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="card shadow-lg mt-4">
         <div class="card-header bg-dark text-white">
-            <h3><i class="bi bi-activity"></i> Analyse Complète - Session {{ session.session_id }}</h3>
+            <div class="d-flex justify-content-between align-items-center">
+                <h3><i class="bi bi-activity"></i> Analyse Complète - Session {{ session.session_id }}</h3>
+                <span class="badge bg-{% if session.status == 'completed' %}success{% else %}warning{% endif %}">
+                    {{ session.get_status_display }}
+                </span>
+            </div>
         </div>
         
         <div class="card-body">
+            <!-- Résumé global -->
+            <div class="alert alert-{% if fraud_results or technical_results %}warning{% else %}success{% endif %} mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-{% if fraud_results or technical_results %}exclamation-triangle-fill{% else %}check-circle-fill{% endif %} me-3" style="font-size: 2rem;"></i>
+                    <div>
+                        <h4 class="alert-heading">
+                            {% if fraud_results or technical_results %}
+                            Analyse terminée - Résultats disponibles
+                            {% else %}
+                            Analyse terminée - Aucun élément suspect détecté
+                            {% endif %}
+                        </h4>
+                        <p class="mb-0">
+                            {% if not fraud_results and not technical_results %}
+                            <i class="bi bi-check-circle-fill text-success"></i> 
+                            Aucune activité suspecte n'a été détectée dans cette session.
+                            {% else %}
+                            <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                            Notre analyse a détecté des éléments nécessitant votre attention.
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Onglets -->
             <ul class="nav nav-tabs mb-4">
                 <li class="nav-item">
-                    <a class="nav-link active" data-bs-toggle="tab" href="#fraud">
-                        <i class="bi bi-shield-exclamation"></i> Fraude
+                    <a class="nav-link active" data-bs-toggle="tab" href="#overview">
+                        <i class="bi bi-speedometer2"></i> Vue d'ensemble
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#sentiment">
-                        <i class="bi bi-emoji-frown"></i> Sentiments
+                    <a class="nav-link" data-bs-toggle="tab" href="#fraud">
+                        <i class="bi bi-shield-exclamation"></i> Fraude
                     </a>
                 </li>
                 <li class="nav-item">
@@ -26,33 +76,170 @@
                         <i class="bi bi-code-square"></i> Technique
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#metadata">
+                        <i class="bi bi-file-earmark-text"></i> Métadonnées
+                    </a>
+                </li>
             </ul>
 
             <!-- Contenu des onglets -->
             <div class="tab-content">
-                <!-- Onglet Fraude -->
-                <div class="tab-pane fade show active" id="fraud">
-                    {% include "analysis/partials/fraud_tab.html" %}
+                <!-- Onglet Vue d'ensemble -->
+                <div class="tab-pane fade show active" id="overview">
+                    <div class="row">
+                        <!-- Carte Résumé Fraude -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-danger text-white">
+                                    <i class="bi bi-shield-exclamation"></i> Détection de Fraude
+                                </div>
+                                <div class="card-body text-center">
+                                    {% if fraud_results %}
+                                    <div class="risk-level risk-high">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> RISQUE ÉLEVÉ
+                                    </div>
+                                    <p>{{ fraud_results|length }} éléments suspects détectés</p>
+                                    <div class="alert alert-danger">
+                                        <i class="bi bi-exclamation-octagon-fill"></i>
+                                        Activité frauduleuse potentielle détectée
+                                    </div>
+                                    {% else %}
+                                    <div class="risk-level risk-low">
+                                        <i class="bi bi-check-circle-fill"></i> AUCUN RISQUE
+                                    </div>
+                                    <p>Aucun élément frauduleux détecté</p>
+                                    <div class="alert alert-success">
+                                        <i class="bi bi-shield-check"></i>
+                                        Aucune activité suspecte détectée
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Carte Résumé Technique -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header bg-warning text-dark">
+                                    <i class="bi bi-code-square"></i> Analyse Technique
+                                </div>
+                                <div class="card-body text-center">
+                                    {% if technical_results %}
+                                    <div class="risk-level risk-medium">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> ANOMALIES
+                                    </div>
+                                    <p>{{ technical_results|length }} anomalies techniques détectées</p>
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-tools"></i>
+                                        Des anomalies techniques ont été identifiées
+                                    </div>
+                                    {% else %}
+                                    <div class="risk-level risk-low">
+                                        <i class="bi bi-check-circle-fill"></i> NORMAL
+                                    </div>
+                                    <p>Aucune anomalie technique détectée</p>
+                                    <div class="alert alert-success">
+                                        <i class="bi bi-check-circle"></i>
+                                        Aucune anomalie détectée
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommandations -->
+                    <div class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <i class="bi bi-lightbulb"></i> Recommandations
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                                {% if fraud_results %}
+                                <li class="list-group-item">
+                                    <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+                                    <strong>Action recommandée:</strong> Examiner les éléments frauduleux détectés
+                                </li>
+                                {% else %}
+                                <li class="list-group-item">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    Aucune action immédiate nécessaire concernant la fraude
+                                </li>
+                                {% endif %}
+                                
+                                {% if technical_results %}
+                                <li class="list-group-item">
+                                    <i class="bi bi-tools text-warning"></i>
+                                    <strong>Action recommandée:</strong> Examiner les anomalies techniques
+                                </li>
+                                {% else %}
+                                <li class="list-group-item">
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    Aucune anomalie technique nécessitant une intervention
+                                </li>
+                                {% endif %}
+                                
+                                <li class="list-group-item">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                    <strong>Générer un rapport PDF</strong> pour documentation complète
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Onglet Sentiments -->
-                <div class="tab-pane fade" id="sentiment">
-                    {% include "analysis/partials/sentiment_tab.html" %}
+
+                <!-- Onglet Fraude -->
+                <div class="tab-pane fade" id="fraud">
+                    {% include "analysis/partials/fraud_tab.html" %}
                 </div>
                 
                 <!-- Onglet Technique -->
                 <div class="tab-pane fade" id="technical">
                     {% include "analysis/partials/technical_tab.html" %}
                 </div>
+                
+                <!-- Onglet Métadonnées -->
+                <div class="tab-pane fade" id="metadata">
+                    {% include "analysis/partials/metadata_tab.html" %}
+                </div>
             </div>
         </div>
         
-        <div class="card-footer">
-            <a href="{% url 'analysis:download_report' session.session_id %}" 
-               class="btn btn-success">
-               <i class="bi bi-file-earmark-pdf"></i> Exporter le rapport complet
+        <div class="card-footer d-flex justify-content-between">
+            <a href="{% url 'dashboard:sessions' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Retour aux sessions
             </a>
+            <div>
+                <a href="{% url 'analysis:generate_report' session.session_id %}" class="btn btn-success">
+                    <i class="bi bi-file-earmark-pdf"></i> Générer le rapport complet
+                </a>
+                <a href="{% url 'analysis:report_list' %}" class="btn btn-info ms-2">
+                    <i class="bi bi-archive"></i> Voir les rapports précédents
+                </a>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Gestion des onglets
+document.querySelectorAll('.nav-tabs .nav-link').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const tabId = this.getAttribute('href');
+        document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('show', 'active');
+        });
+        document.querySelector(tabId).classList.add('show', 'active');
+        
+        document.querySelectorAll('.nav-tabs .nav-link').forEach(navLink => {
+            navLink.classList.remove('active');
+        });
+        this.classList.add('active');
+    });
+});
+</script>
 {% endblock %}

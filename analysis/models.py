@@ -1,30 +1,25 @@
 from django.db import models
 from api.models import ForensicSession, CollectedData
 
+# Dans models.py
 class AnalysisResult(models.Model):
     ANALYSIS_CHOICES = [
         ('fraud', 'Fraude'),
         ('sentiment', 'Sentiment'),
         ('anomaly', 'Anomalie'),
         ('llm', 'Analyse LLM'),
-        ('geo', 'Géolocalisation'),
-        ('network', 'Réseau')
     ]
     
     data = models.ForeignKey(CollectedData, on_delete=models.CASCADE, related_name='results')
     analysis_type = models.CharField(max_length=20, choices=ANALYSIS_CHOICES)
-    result_json = models.JSONField(encoder=None, decoder=None)
+    result_json = models.JSONField()
     confidence = models.FloatField(default=0.0)
     is_critical = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-is_critical', '-confidence']
-        indexes = [
-            models.Index(fields=['analysis_type']),
-            models.Index(fields=['is_critical']),
-        ]
-
+        
     def __str__(self):
         return f"{self.get_analysis_type_display()} - {self.data}"
 

@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     
+    
     # Vos apps
     'authentication',
     'api',
@@ -203,7 +204,8 @@ AI_CONFIG = {
         'model': 'phi3',
         'timeout': 60
     },
-    'fraud_keywords': ['fraude', 'urgence', 'mot de passe', 'argent', 'banque'],
+    'fraud_keywords': ['fraude', 'urgence', 'mot de passe', 'argent', 'banque' , 'urgent', 'félicitations', 'gratuit', 'cliquez', 'argent', 
+        'gagné', 'prix', 'loterie', 'banking', 'compte'],
     'anomaly_threshold': 0.7
 }
 
@@ -214,3 +216,30 @@ os.makedirs(REPORTS_DIR, exist_ok=True)
 # Configuration spécifique pour les données forensiques
 FORENSIC_DATA_DIR = 'forensic_data'
 FORENSIC_UPLOAD_TO = f'{FORENSIC_DATA_DIR}/%Y/%m/%d'
+
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+        'analysis': {
+            'handlers': ['file'],
+            'level': 'DEBUG',
+        },
+    },
+}
+
+

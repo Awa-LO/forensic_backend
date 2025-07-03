@@ -1,28 +1,27 @@
+# analysis/urls.py
 from django.urls import path
-from .views import (
-    AnalyzeDataView,
-    DownloadReportView,
-    ReportListView,
-    AnalysisDashboardView, 
-    ReportDetailView
-)
-from .views import session_analysis_view
-from .views import test_analysis_pipeline 
-from . import views 
-from .views import generate_report
+from . import views
+
 app_name = 'analysis'
 
 urlpatterns = [
-        # Tableau de bord principal
-    path('dashboard/', AnalysisDashboardView.as_view(), name='analysis_dashboard'),
-    path('reports/', ReportListView.as_view(), name='report_list'),
-    path('sessions/<uuid:session_id>/report/', generate_report, name='generate_report'),
-    path('reports/<int:pk>/', ReportDetailView.as_view(), name='report_detail'),
-    path('sessions/<str:session_id>/', session_analysis_view, name='session_analysis'),
-       path('sessions/<str:session_id>/test_pipeline/', test_analysis_pipeline, name='test_pipeline'),
+    # Dashboard principal
+    path('dashboard/', views.AnalysisDashboardView.as_view(), name='analysis_dashboard'),
+    
+    # Gestion des sessions
+    path('sessions/<uuid:session_id>/', views.session_detail_view, name='session_detail'),
     path('sessions/<uuid:session_id>/analyze/', views.analyze_session, name='analyze'),
-    path('sessions/<str:session_id>/analyze/', AnalyzeDataView.as_view(), name='analyze'),
-    path('sessions/<str:session_id>/download-report/', DownloadReportView.as_view(), name='download_report'),
+    path('sessions/<uuid:session_id>/results/', views.session_analysis_view, name='session_analysis'),
+    
+    # Génération de rapports
+    path('sessions/<uuid:session_id>/generate-report/', views.generate_report, name='generate_report'),
+    path('reports/', views.ReportListView.as_view(), name='report_list'),
+    path('reports/<int:pk>/', views.ReportDetailView.as_view(), name='report_detail'),
+    
+    # API REST (optionnel)
+    path('api/sessions/<uuid:session_id>/analyze/', views.AnalyzeDataView.as_view(), name='api_analyze'),
+    # Dans analysis/urls.py
+path('debug/sessions/<uuid:session_id>/', views.debug_analysis_session, name='debug_analysis_session'),
+    # Debug/Test
+    path('sessions/<uuid:session_id>/test-pipeline/', views.test_analysis_pipeline, name='test_pipeline'),
 ]
-
- 

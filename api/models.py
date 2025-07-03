@@ -23,6 +23,7 @@ class ForensicSession(models.Model):
     device_name = models.CharField(max_length=255, blank=True, null=True)
     android_version = models.CharField(max_length=50, blank=True, null=True)
     save_path = models.CharField(max_length=512, blank=True, null=True)
+    is_analyzed = models.BooleanField(default=False)
     def get_storage_path(self):
         return f"forensic_data/{self.start_time.strftime('%Y/%m/%d')}/{self.session_id}/"
     

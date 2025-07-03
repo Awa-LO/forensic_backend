@@ -345,7 +345,7 @@ class ForensicAI:
 
 class PDFGenerator:
     @staticmethod
-    def generate(session, results):
+    def generate(session, analysis_results=None):
         """Génère un rapport PDF pour une session forensique"""
         try:
             # Créer un fichier temporaire ou dans un dossier spécifique
@@ -371,8 +371,39 @@ class PDFGenerator:
                 Spacer(1, 12)
             ]
             
+            # Récupérer tous les résultats d'analyse de la session
+            all_results = {}
+            fraud_results = []
+            sentiment_data = {}
+            anomaly_data = {}
+            llm_summaries = []
+            
+            # Collecter tous les résultats depuis la base de données
+            for data_item in session.collected_items.all():
+                for result in data_item.results.all():
+                    result_json = result.result_json or {}
+                    
+                    # Organiser par type d'analyse
+                    if result.analysis_type == 'fraud' or 'fraud' in result_json:
+                        fraud_list = result_json.get('fraud', [])
+                        if fraud_list:
+                            fraud_results.extend(fraud_list)
+                    
+                    if result.analysis_type == 'sentiment' or 'sentiment' in result_json:
+                        sentiment_data.update(result_json.get('sentiment', {}))
+                    
+                    if result.analysis_type == 'anomaly' or 'anomalies' in result_json:
+                        anomaly_data.update(result_json.get('anomalies', {}))
+                    
+                    if result.analysis_type == 'llm' or 'llm_summary' in result_json:
+                        summary = result_json.get('llm_summary', '')
+                        if summary and summary not in llm_summaries:
+                            llm_summaries.append(summary)
+                    
+                    # Collecter tous les résultats pour compatibilité
+                    all_results.update(result_json)
+            
             # Section Fraude
-            fraud_results = results.get('fraud', [])
             if fraud_results:
                 elements.extend([
                     Paragraph("🚨 Détection de Fraude", styles['Heading2']),
@@ -382,7 +413,7 @@ class PDFGenerator:
                 # Créer le tableau des fraudes
                 fraud_data = [["Extrait", "Mots-clés détectés", "Niveau de confiance"]]
                 
-                for fraud in fraud_results:
+                for fraud in fraud_results[:10]:  # Limiter à 10 pour le PDF
                     if isinstance(fraud, dict):
                         fraud_data.append([
                             fraud.get('text', 'N/A')[:50] + '...' if len(fraud.get('text', '')) > 50 else fraud.get('text', 'N/A'),
@@ -399,91 +430,105 @@ class PDFGenerator:
                         ('FONTSIZE', (0,0), (-1,-1), 9)
                     ])
                     elements.append(fraud_table)
-                else:
-                    elements.append(Paragraph("Aucune fraude détectée.", styles['Normal']))
-                
-                elements.append(Spacer(1, 12))
+                    elements.append(Spacer(1, 12))
             
             # Section Analyse Sentiment
-            sentiment_results = results.get('sentiment', {})
-            if sentiment_results and not sentiment_results.get('error'):
+            if sentiment_data and not sentiment_data.get('error'):
                 elements.extend([
                     Paragraph("😊 Analyse des Sentiments", styles['Heading2']),
                     Spacer(1, 6)
                 ])
                 
-                sentiment_data = [["Émotion", "Score"]]
-                for emotion, score in sentiment_results.items():
+                sentiment_table_data = [["Émotion", "Score"]]
+                for emotion, score in sentiment_data.items():
                     if isinstance(score, (int, float)) and emotion not in ['emoji_count', 'word_count']:
-                        sentiment_data.append([
+                        sentiment_table_data.append([
                             emotion.capitalize(),
                             f"{score:.2%}" if score <= 1 else f"{score:.2f}"
                         ])
                 
-                if len(sentiment_data) > 1:
-                    sentiment_table = Table(sentiment_data, colWidths=[200, 100])
+                if len(sentiment_table_data) > 1:
+                    sentiment_table = Table(sentiment_table_data, colWidths=[200, 100])
                     sentiment_table.setStyle([
                         ('GRID', (0,0), (-1,-1), 1, colors.grey),
                         ('BACKGROUND', (0,0), (-1,0), colors.lightblue),
                         ('FONTSIZE', (0,0), (-1,-1), 10)
                     ])
                     elements.append(sentiment_table)
-                
-                elements.append(Spacer(1, 12))
+                    elements.append(Spacer(1, 12))
             
             # Section Anomalies
-            anomaly_results = results.get('anomalies', {})
-            if anomaly_results and not anomaly_results.get('error'):
+            if anomaly_data and not anomaly_data.get('error'):
                 elements.extend([
                     Paragraph("📊 Détection d'Anomalies", styles['Heading2']),
                     Spacer(1, 6)
                 ])
                 
-                if 'anomaly_count' in anomaly_results:
+                if 'anomaly_count' in anomaly_data:
                     elements.append(Paragraph(
-                        f"Anomalies détectées: {anomaly_results['anomaly_count']} sur {anomaly_results.get('total_samples', 0)} échantillons",
+                        f"Anomalies détectées: {anomaly_data['anomaly_count']} sur {anomaly_data.get('total_samples', 0)} échantillons",
                         styles['Normal']
                     ))
-                elif 'anomaly_scores' in anomaly_results:
+                elif 'anomaly_scores' in anomaly_data:
                     elements.append(Paragraph(
-                        f"Scores d'anomalies calculés: {len(anomaly_results.get('anomaly_scores', []))} points de données",
+                        f"Scores d'anomalies calculés: {len(anomaly_data.get('anomaly_scores', []))} points de données",
                         styles['Normal']
                     ))
                 else:
                     elements.append(Paragraph(
-                        anomaly_results.get('message', 'Analyse d\'anomalies effectuée'),
+                        anomaly_data.get('message', 'Analyse d\'anomalies effectuée'),
                         styles['Normal']
                     ))
                 
                 elements.append(Spacer(1, 12))
             
             # Section Résumé IA
-            llm_summary = results.get('llm_summary', '')
-            if llm_summary and not llm_summary.startswith('Erreur') and not llm_summary.startswith('Analyse LLM indisponible'):
+            if llm_summaries:
                 elements.extend([
                     Paragraph("🤖 Résumé de l'Intelligence Artificielle", styles['Heading2']),
-                    Spacer(1, 6),
-                    Paragraph(llm_summary, styles['Normal']),
-                    Spacer(1, 12)
+                    Spacer(1, 6)
                 ])
+                
+                for i, summary in enumerate(llm_summaries[:3]):  # Limiter à 3 résumés
+                    if summary and not summary.startswith('Erreur') and not summary.startswith('Résumé indisponible'):
+                        if len(llm_summaries) > 1:
+                            elements.append(Paragraph(f"Résumé {i+1}:", styles['Heading3']))
+                        elements.append(Paragraph(summary, styles['Normal']))
+                        elements.append(Spacer(1, 6))
+                
+                elements.append(Spacer(1, 12))
+            
+            # Section Statistiques générales
+            elements.extend([
+                Paragraph("📈 Statistiques Générales", styles['Heading2']),
+                Spacer(1, 6)
+            ])
+            
+            stats_data = [
+                ["Métrique", "Valeur"],
+                ["Nombre d'éléments analysés", str(session.collected_items.count())],
+                ["Nombre de résultats de fraude", str(len(fraud_results))],
+                ["Types de données analysées", ", ".join(set(session.collected_items.values_list('data_type', flat=True)))],
+                ["Résultats critiques", str(session.collected_items.filter(results__is_critical=True).count())],
+            ]
+            
+            stats_table = Table(stats_data, colWidths=[250, 150])
+            stats_table.setStyle([
+                ('GRID', (0,0), (-1,-1), 1, colors.grey),
+                ('BACKGROUND', (0,0), (-1,0), colors.lightgreen),
+                ('FONTSIZE', (0,0), (-1,-1), 10)
+            ])
+            elements.append(stats_table)
+            elements.append(Spacer(1, 12))
             
             # Section Métadonnées
             elements.extend([
                 Paragraph("ℹ️ Informations de Session", styles['Heading2']),
                 Spacer(1, 6),
                 Paragraph(f"ID Session: {session.session_id}", styles['Normal']),
-                Paragraph(f"Utilisateur: {getattr(session, 'user', 'N/A')}", styles['Normal'])
+                Paragraph(f"Utilisateur: {getattr(session, 'user', 'N/A')}", styles['Normal']),
+                Paragraph(f"Statut d'analyse: {'Complète' if getattr(session, 'is_analyzed', False) else 'Partielle'}", styles['Normal'])
             ])
-            
-            # Compter les éléments collectés si possible
-            try:
-                if hasattr(session, 'collected_items'):
-                    item_count = session.collected_items.count()
-                else:
-                    item_count = "Non disponible"
-                elements.append(Paragraph(f"Nombre d'éléments analysés: {item_count}", styles['Normal']))
-            except:
-                pass
             
             doc.build(elements)
             logger.info(f"Rapport PDF généré: {filepath}")

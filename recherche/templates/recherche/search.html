@@ -1,0 +1,270 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Recherche dans {{ session.case_name|default:"Session" }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- En-tête -->
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'recherche:home' %}">
+                            <i class="bi bi-house"></i> Recherche
+                        </a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ session.case_name|default:"Session" }}</li>
+                </ol>
+            </nav>
+            
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="bi bi-search"></i> Recherche Forensique</h1>
+                    <p class="text-muted">
+                        Session: <strong>{{ session.session_id }}</strong> | 
+                        <span class="badge bg-info">{{ data_count }} données disponibles</span>
+                    </p>
+                </div>
+                <div>
+                    <a href="{% url 'recherche:history' session.session_id %}" 
+                       class="btn btn-outline-secondary">
+                        <i class="bi bi-clock-history"></i> Historique
+                    </a>
+                    <a href="{% url 'recherche:home' %}" 
+                       class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left"></i> Changer de session
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulaire de recherche -->
+    <div class="card shadow mb-4">
+        <div class="card-body">
+            <form id="searchForm" method="POST">
+                {% csrf_token %}
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   name="search_term" 
+                                   placeholder="Entrez un terme à rechercher..." 
+                                   required
+                                   autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary btn-lg w-100" type="submit" id="searchBtn">
+                            <i class="bi bi-search"></i> Rechercher
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Informations sur la session -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <strong>Session ID:</strong><br>
+                    <code>{{ session.session_id }}</code>
+                </div>
+                <div class="col-md-3">
+                    <strong>Cas:</strong><br>
+                    {{ session.case_name|default:"Non défini" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Créé le:</strong><br>
+                    Créée le {{ session.start_time|date:"d/m/Y à H:i" }}
+                </div>
+                <div class="col-md-3">
+                    <strong>Données collectées:</strong><br>
+                    <span class="badge bg-success">{{ data_count }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteneur pour les résultats -->
+    <div id="resultsContainer" class="mt-4">
+        <!-- Les résultats seront affichés ici via JavaScript -->
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+// Fonction pour obtenir le token CSRF
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+document.getElementById('searchForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const form = e.target;
+    const formData = new FormData(form);
+    const searchBtn = document.getElementById('searchBtn');
+    const originalText = searchBtn.innerHTML;
+    const searchInput = form.querySelector('input[name="search_term"]');
+    
+    // Validation côté client
+    if (!searchInput.value.trim()) {
+        alert('Veuillez saisir un terme de recherche');
+        searchInput.focus();
+        return;
+    }
+    
+    // Désactiver le bouton et afficher un indicateur de chargement
+    searchBtn.disabled = true;
+    searchBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Recherche en cours...';
+    
+    // Afficher un message de chargement
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = `
+        <div class="alert alert-info">
+            <div class="d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <div>Recherche en cours dans {{ data_count }} éléments de données...</div>
+            </div>
+        </div>
+    `;
+    
+    fetch(window.location.href, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': getCookie('csrftoken'),
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Données reçues:', data);
+        
+        if (data.error) {
+            container.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${data.error}
+                </div>
+            `;
+            return;
+        }
+        
+        let html = `
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="bi bi-card-checklist"></i> 
+                            Résultats pour "${data.search_term}"
+                        </h4>
+                        <div class="text-end">
+                            <span class="badge bg-light text-dark">
+                                ${data.total_occurrences} occurrence(s)
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+        `;
+        
+        // Afficher les informations sur la recherche
+        if (data.info) {
+            html += `<div class="alert alert-info">${data.info}</div>`;
+        }
+        
+        if (data.matches && data.matches.length > 0) {
+            html += `
+                <div class="mb-3">
+                    <strong>${data.matches.length}</strong> résultat(s) trouvé(s) sur <strong>${data.total_occurrences}</strong> occurrence(s)
+                </div>
+                <div class="list-group">
+            `;
+            
+            data.matches.forEach((match, index) => {
+                html += `
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">
+                                <span class="badge bg-secondary">${match.data_type}</span>
+                                ${match.field ? '<span class="badge bg-info">Champ: ' + match.field + '</span>' : ''}
+                            </h5>
+                            <small class="text-muted">
+                                <span class="badge bg-warning text-dark">
+                                    ${match.occurrences} occurrence(s)
+                                </span>
+                            </small>
+                        </div>
+                        <p class="mb-1 bg-light p-2 rounded">
+                            <code>${match.content}</code>
+                        </p>
+                        <small>
+                            <i class="bi bi-database"></i> ID: ${match.data_id}
+                        </small>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+        } else {
+            html += `
+                <div class="alert alert-warning">
+                    <i class="bi bi-info-circle"></i> 
+                    Aucun résultat trouvé pour "${data.search_term}"
+                </div>
+            `;
+        }
+        
+        html += '</div></div>';
+        container.innerHTML = html;
+        
+        // Scroll vers les résultats
+        container.scrollIntoView({ behavior: 'smooth' });
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> 
+                Erreur lors de la recherche: ${error.message}
+            </div>
+        `;
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = originalText;
+    });
+});
+
+// Focus automatique sur le champ de recherche
+document.querySelector('input[name="search_term"]').focus();
+</script>
+{% endblock %}
+{% endblock %}

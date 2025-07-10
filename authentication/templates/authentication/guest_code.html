@@ -1,0 +1,21 @@
+{% extends "auth/base_auth.html" %}
+
+{% load static %}
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Code d'accès Invité</h2>
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="access_code" class="form-label">Entrez le code d'accès</label>
+            <input type="password" class="form-control" id="access_code" name="access_code" required>
+        </div>
+        <button type="submit" class="btn btn-success">Valider</button>
+    </form>
+</div>
+{% endblock %}

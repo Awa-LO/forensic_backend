@@ -24,7 +24,7 @@ SECRET_KEY = 'django-insecure-44ts5t#6d4t+6b6y3_#y-!zne7u*#u-vtyqmv3-+3j=(4s9mxd
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-ALLOWED_HOSTS = ['192.168.137.9', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['192.168.137.9', 'localhost', '127.0.0.1' , '10.96.130.9']
 
 # Application definition
 INSTALLED_APPS = [
@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'api',
     'analysis',
     'dashboard',
+    'recherche',
    
 ]
 
@@ -241,5 +242,12 @@ LOGGING = {
         },
     },
 }
+
+
+ACCESS_CODES = {
+    'guest': 'passer1234',
+    'judge': 'codejuge5678',
+}
+
 
 

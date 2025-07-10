@@ -1,0 +1,111 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Sélection de Session - Recherche{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1><i class="bi bi-search"></i> Recherche Forensique</h1>
+            <p class="text-muted">Sélectionnez une session pour effectuer votre recherche</p>
+        </div>
+    </div>
+
+    {% if sessions %}
+    <div class="row">
+        {% for session in sessions %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-folder"></i> 
+                        Session {{ session.session_id|slice:":8" }}...
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="card-title">{{ session.case_name|default:"Nom du cas non défini" }}</h6>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar"></i> 
+                            Créée le {{ session.start_time|date:"d/m/Y à H:i" }}
+                        </small>
+                    </p>
+                    <p class="card-text">
+                        <span class="badge bg-info">
+                            <i class="bi bi-database"></i> 
+                            {{ session.collected_items.count }} données collectées
+                        </span>
+                    </p>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'recherche:search_session' session.session_id %}" 
+                           class="btn btn-primary btn-sm">
+                            <i class="bi bi-search"></i> Rechercher
+                        </a>
+                        <a href="{% url 'recherche:history' session.session_id %}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-clock-history"></i> Historique
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer text-muted">
+                    <small>
+                        <i class="bi bi-person"></i> {{ session.user.username }}
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Formulaire de recherche rapide -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5><i class="bi bi-lightning"></i> Recherche Rapide</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" class="row g-3">
+                {% csrf_token %}
+                <div class="col-md-6">
+                    <select name="session_id" class="form-select" required>
+                        <option value="">Choisir une session...</option>
+                        {% for session in sessions %}
+                        <option value="{{ session.session_id }}">
+                            {{ session.case_name|default:"Session" }} - {{ session.session_id|slice:":8" }}...
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-arrow-right"></i> Aller à la recherche
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Aucune session trouvée</strong><br>
+        Vous devez d'abord créer une session forensique pour pouvoir effectuer des recherches.
+        <hr>
+        <a href="{% url 'api:create_session' %}" class="btn btn-primary">
+            <i class="bi bi-plus"></i> Créer une nouvelle session
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% block extra_css %}
+<style>
+.card {
+    transition: transform 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}
+{% endblock %}

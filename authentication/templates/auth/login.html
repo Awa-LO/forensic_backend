@@ -39,7 +39,8 @@
         </div>
     </div>
     <div class="card-footer text-center py-3">
-        <p class="mb-0">Nouveau sur la plateforme ? <a href="{% url 'register' %}" class="text-decoration-none">Créer un compte</a></p>
+       <a href="{% url 'authentication:register' %}" class="text-decoration-none">Créer un compte</a>
+
     </div>
 </div>
 {% endblock %}

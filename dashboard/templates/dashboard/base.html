@@ -36,13 +36,19 @@
                             <i class="bi bi-graph-up"></i> Analyses
                         </a>
                     </li>
+                    <li class="nav-item">
+    <a class="nav-link" href="{% url 'recherche:home' %}">
+        <i class="bi bi-search"></i> Recherche
+    </a>
+</li>
+
                 </ul>
                 <div class="d-flex">
                     <span class="navbar-text me-3 text-white">
                         <i class="bi bi-person-circle"></i> {{ request.user.username }}
                     </span>
-                    <a href="{% url 'logout' %}" class="btn btn-outline-light">
-                        <i class="bi bi-box-arrow-right"></i> Déconnexion
+<a href="{% url 'authentication:logout' %}">Se déconnecter</a>
+
                     </a>
                 </div>
             </div>

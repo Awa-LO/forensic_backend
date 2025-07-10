@@ -151,6 +151,17 @@ def analyze_session(request, session_id):
                                     'is_critical': False
                                 }
                             )
+                            if 'sentiment' in result and result['sentiment']:
+                                AnalysisResult.objects.update_or_create(
+                                    data=data,
+                                    analysis_type='sentiment',
+                                    defaults={
+                                        'result_json': {'sentiment': result['sentiment']},
+                                        'confidence': 0.75,
+                                        'is_critical': False
+                                    }
+                                )
+
                     
                     logger.info(f"Analysé avec succès: {data.id}")
                     
@@ -250,8 +261,8 @@ def session_analysis_view(request, session_id):
     # Préparer les résultats par type
     fraud_results = []
     technical_results = []
-    sentiment_results = None
-    
+    sentiment_results = []
+
     for data in session.collected_items.all():
         for result in data.results.all():
             if result.analysis_type == 'fraud':
@@ -259,7 +270,8 @@ def session_analysis_view(request, session_id):
             elif result.analysis_type in ['anomaly', 'llm']:
                 technical_results.append(result)
             elif result.analysis_type == 'sentiment':
-                sentiment_results = result
+                sentiment_results.append(result)  # Ajouté ici pour tous les résultats sentiment
+
     
     context = {
         'session': session,

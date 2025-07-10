@@ -70,3 +70,32 @@ def register_view(request):
     else:
         form = RegisterForm()
     return render(request, 'auth/register.html', {'form': form})
+
+
+
+
+# authentication/views.py (ajoute ces deux vues)
+from django.shortcuts import render, redirect
+from django.contrib import messages
+
+def choose_role_view(request):
+    if request.method == 'POST':
+        role = request.POST.get('role')
+        if role == 'enqueteur':
+            return redirect('authentication:login')
+  # login normal
+        elif role == 'juge':
+            return redirect('analysis:report_list')  # vue existante
+        elif role == 'invite':
+            return redirect('authentication:guest_code')
+    return render(request, 'authentication/choose_role.html')
+
+def guest_code_view(request):
+    if request.method == 'POST':
+        code = request.POST.get('access_code')
+        if code == 'passer1234':
+            messages.success(request, 'Accès autorisé.')
+            return redirect('analysis:report_list')  # redirection vers ta vue existante
+        else:
+            messages.error(request, 'Accès refusé : code invalide.')
+    return render(request, 'authentication/guest_code.html')

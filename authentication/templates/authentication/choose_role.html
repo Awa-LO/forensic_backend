@@ -1,0 +1,23 @@
+{% extends "auth/base_auth.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Qui êtes-vous ?</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="role" value="enqueteur" id="enqueteur" required>
+            <label class="form-check-label" for="enqueteur">Enquêteur (authentification requise)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="role" value="juge" id="juge">
+            <label class="form-check-label" for="juge">Juge (accès à la liste des rapports)</label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="role" value="invite" id="invite">
+            <label class="form-check-label" for="invite">Invité (accès avec code)</label>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3">Continuer</button>
+    </form>
+</div>
+{% endblock %}

@@ -81,6 +81,12 @@
                         <i class="bi bi-file-earmark-text"></i> Métadonnées
                     </a>
                 </li>
+                <li class="nav-item">
+    <a class="nav-link" data-bs-toggle="tab" href="#sentiment">
+        <i class="bi bi-emoji-smile"></i> Sentiment
+    </a>
+</li>
+
             </ul>
 
             <!-- Contenu des onglets -->
@@ -149,6 +155,43 @@
                         </div>
                     </div>
 
+                    <!-- Carte Résumé Sentiment -->
+<div class="col-md-6 mb-4">
+    <div class="card h-100">
+        <div class="card-header bg-primary text-white">
+            <i class="bi bi-emoji-smile"></i> Analyse de Sentiment
+        </div>
+        <div class="card-body text-center">
+            {% if sentiment_result %}
+                <div class="risk-level">
+                    {% if sentiment_result.sentiment == 'positive' %}
+                        <i class="bi bi-emoji-smile text-success"></i> Sentiment Positif
+                    {% elif sentiment_result.sentiment == 'neutral' %}
+                        <i class="bi bi-emoji-neutral text-warning"></i> Sentiment Neutre
+                    {% else %}
+                        <i class="bi bi-emoji-frown text-danger"></i> Sentiment Négatif
+                    {% endif %}
+                </div>
+                <p>Résultat basé sur les données de la session</p>
+                <div class="alert alert-secondary">
+                    <i class="bi bi-bar-chart"></i>
+                    Sentiment dominant : <strong>{{ sentiment_result.sentiment|title }}</strong>
+                </div>
+            {% else %}
+                <div class="risk-level risk-low">
+                    <i class="bi bi-emoji-neutral"></i> Aucune donnée de sentiment
+                </div>
+                <p>Pas d’analyse de sentiment disponible</p>
+                <div class="alert alert-light">
+                    <i class="bi bi-info-circle"></i>
+                    Cette session ne contient pas de données textuelles exploitables
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
                     <!-- Recommandations -->
                     <div class="card mb-4">
                         <div class="card-header bg-info text-white">
@@ -203,6 +246,13 @@
                 <div class="tab-pane fade" id="metadata">
                     {% include "analysis/partials/metadata_tab.html" %}
                 </div>
+
+
+                <!-- Onglet Sentiment -->
+<div class="tab-pane fade" id="sentiment">
+    {% include "analysis/partials/sentiment_tab.html" %}
+</div>
+
             </div>
         </div>
         
